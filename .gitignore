@@ -3,3 +3,5 @@
 /stage
 *.snap
 /weatherstationd
+__pycache__/
+*.pyc
