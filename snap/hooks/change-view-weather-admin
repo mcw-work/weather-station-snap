@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+import json
+import logging
+import logging.handlers
+import subprocess
+import sys
+
+logger = logging.getLogger("change-view-hook")
+logger.setLevel(logging.INFO)
+try:
+    _h = logging.handlers.SysLogHandler(address="/dev/log")
+    _h.setFormatter(logging.Formatter("weatherstation.change-view: %(message)s"))
+    logger.addHandler(_h)
+except Exception:
+    pass
+
+MIN_POLL_INTERVAL = 60
+
+
+def validate(doc):
+    """Return an error string if doc is invalid, else None."""
+    if not str(doc.get("api-key", "")).strip():
+        return "api-key must be set"
+
+    loc = doc.get("location", {})
+    lat, lon = loc.get("lat"), loc.get("lon")
+    if lat is None or not (-90 <= lat <= 90):
+        return f"lat must be between -90 and 90, got {lat}"
+    if lon is None or not (-180 <= lon <= 180):
+        return f"lon must be between -180 and 180, got {lon}"
+
+    poll = doc.get("poll-interval")
+    if poll is None or poll < MIN_POLL_INTERVAL:
+        return f"poll-interval must be >= {MIN_POLL_INTERVAL}, got {poll}"
+
+    mqtt = doc.get("mqtt", {})
+    if not str(mqtt.get("topic", "")).strip():
+        return "mqtt.topic must be set"
+
+    server = str(mqtt.get("server", ""))
+    if server.startswith("unix://"):
+        return None
+    if server.startswith("tcp://"):
+        port = mqtt.get("port")
+        if port is None or not (1 <= port <= 65535):
+            return f"mqtt.port must be 1..65535 for tcp, got {port}"
+        return None
+    return "mqtt.server must use a tcp:// or unix:// scheme"
+
+
+def read_incoming():
+    out = subprocess.run(
+        ["snapctl", "get", "-d", ":weather-admin", "--view", "weather"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    if not out:
+        return {}
+    return json.loads(out)
+
+
+def main():
+    doc = read_incoming()
+    err = validate(doc)
+    if err:
+        logger.error("rejecting confdb write: %s", err)
+        sys.exit(1)  # abort the transaction
+    logger.info("confdb write validated")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
