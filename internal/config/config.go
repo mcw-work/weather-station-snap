@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os/exec"
 	"time"
 )
@@ -67,7 +68,7 @@ func LoadFromConfdb() (Config, error) {
 		"snapctl", "get", "-d", ":weather-admin", "--view", "weather",
 	).Output()
 	if err != nil {
-		return Config{}, err
+		return Config{}, fmt.Errorf("snapctl get weather view: %w", err)
 	}
 	return Parse(out)
 }

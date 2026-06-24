@@ -36,3 +36,9 @@ func TestParseEmptyIsError(t *testing.T) {
 		t.Error("Parse(empty) returned nil error, want error")
 	}
 }
+
+func TestParseInvalidJSONIsError(t *testing.T) {
+	if _, err := Parse([]byte(`{invalid}`)); err == nil {
+		t.Error("Parse(invalid JSON) returned nil error, want error")
+	}
+}
