@@ -1,0 +1,63 @@
+name: weatherstation
+base: core26
+version: "0.1.0"
+summary: Publishes OpenWeather data to an MQTT topic
+description: |
+  Polls the OpenWeather current-weather API on a configurable interval and
+  publishes a normalized JSON reading to a configurable MQTT topic over either
+  a TCP or unix-domain-socket broker connection. Configured via snapd confdb.
+
+confinement: strict
+grade: devel
+
+apps:
+  weatherstationd:
+    command: bin/weatherstationd
+    daemon: simple
+    restart-condition: on-failure
+    plugs:
+      - network
+      - mqtt-socket
+
+parts:
+  weatherstationd:
+    plugin: go
+    source: .
+    build-snaps:
+      - go/1.22/stable
+    organize:
+      bin/weatherstationd: bin/weatherstationd
+  hooks:
+    plugin: dump
+    source: snap/local
+    organize:
+      configuration: etc/configuration
+
+plugs:
+  weather-admin:
+    interface: confdb
+    account: <ACCOUNT_ID>
+    view: weather/admin
+    role: custodian
+
+  # Read-only view, available for future observer snaps.
+  weather-state:
+    interface: confdb
+    account: <ACCOUNT_ID>
+    view: weather/state
+
+  # Shares a broker's unix socket directory for the unix:// transport.
+  mqtt-socket:
+    interface: content
+    content: mqtt-socket
+    target: $SNAP_DATA/mqtt
+
+hooks:
+  configure:
+    plugs: [weather-admin]
+  change-view-weather-admin:
+    plugs: [weather-admin]
+  observe-view-weather-admin:
+    plugs: [weather-admin]
+  connect-plug-weather-admin:
+    plugs: [weather-admin]

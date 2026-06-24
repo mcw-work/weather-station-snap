@@ -1,0 +1,11 @@
+#!/bin/sh -e
+
+logger -t "weatherstation.connect-plug" "weather-admin confdb interface connected"
+
+# Do NOT access confdb here (would deadlock). Only restart so the daemon
+# re-reads config on next start.
+if snapctl services weatherstation.weatherstationd | grep -q active; then
+    snapctl restart weatherstation.weatherstationd || true
+fi
+
+exit 0

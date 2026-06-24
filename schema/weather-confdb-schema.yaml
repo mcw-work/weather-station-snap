@@ -1,0 +1,48 @@
+storage:
+  schema:
+    v1:
+      type: map
+      schema:
+        weather:
+          type: map
+          schema:
+            api-key:
+              type: string
+              visibility: secret
+            location:
+              type: map
+              schema:
+                lat:
+                  type: number
+                  min: -90
+                  max: 90
+                lon:
+                  type: number
+                  min: -180
+                  max: 180
+            poll-interval:
+              type: int
+              min: 60
+            mqtt:
+              type: map
+              schema:
+                server:
+                  type: string
+                port:
+                  type: int
+                  min: 1
+                  max: 65535
+                topic:
+                  type: string
+
+views:
+  admin:
+    rules:
+      - request: weather
+        storage: v1.weather
+        access: read-write
+  state:
+    rules:
+      - request: weather
+        storage: v1.weather
+        access: read
