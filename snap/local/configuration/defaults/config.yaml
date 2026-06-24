@@ -2,6 +2,7 @@ api-key: "api-key-placeholder"
 lat: 0
 lon: 0
 poll-interval: 600
-mqtt-server: "mqtt-server-placeholder"
-mqtt-port: 1883
-mqtt-topic: "mqtt-topic-placeholder"
+mqtt:
+  server: "mqtt-server-placeholder"
+  port: 1883
+  topic: "mqtt-topic-placeholder"
