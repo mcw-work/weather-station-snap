@@ -1,9 +1,9 @@
 #!/bin/sh -e
 
-logger -t "weatherstation.observe-view" "confdb weather view changed; restarting daemon"
+logger -t "weatherstation.observe-view" "confdb weather view changed; (re)starting daemon"
 
-if snapctl services weatherstation.weatherstationd | grep -q active; then
-    snapctl restart weatherstation.weatherstationd || true
-fi
+# (Re)start unconditionally: the first committed configuration must be able to
+# bring up a daemon that is currently inactive (it exits while unconfigured).
+snapctl restart weatherstation.weatherstationd || true
 
 exit 0

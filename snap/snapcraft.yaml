@@ -24,7 +24,7 @@ parts:
     plugin: go
     source: .
     build-snaps:
-      - go/1.22/stable
+      - go/1.26/stable
     organize:
       bin/weatherstationd: bin/weatherstationd
   hooks:
@@ -32,19 +32,26 @@ parts:
     source: snap/local
     organize:
       configuration: etc/configuration
+  # core26 ships no interpreter; the configure and change-view hooks are
+  # Python, so bundle a stdlib-complete python3 into the snap runtime.
+  python3:
+    plugin: nil
+    stage-packages:
+      - python3
 
 plugs:
   weather-admin:
     interface: confdb
-    account: <ACCOUNT_ID>
+    account: bpyPt7Qr2Qbui3MJMgyzZ3WaQkyj6OkU
     view: weather/admin
     role: custodian
 
   # Read-only view, available for future observer snaps.
   weather-state:
     interface: confdb
-    account: <ACCOUNT_ID>
+    account: bpyPt7Qr2Qbui3MJMgyzZ3WaQkyj6OkU
     view: weather/state
+    role: custodian
 
   # Shares a broker's unix socket directory for the unix:// transport.
   mqtt-socket:
@@ -53,8 +60,6 @@ plugs:
     target: $SNAP_DATA/mqtt
 
 hooks:
-  configure:
-    plugs: [weather-admin]
   change-view-weather-admin:
     plugs: [weather-admin]
   observe-view-weather-admin:

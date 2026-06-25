@@ -1,0 +1,107 @@
+type: confdb-schema
+authority-id: bpyPt7Qr2Qbui3MJMgyzZ3WaQkyj6OkU
+revision: 3
+account-id: bpyPt7Qr2Qbui3MJMgyzZ3WaQkyj6OkU
+name: weather
+summary: OpenWeather data published to MQTT, configured via confdb.
+timestamp: 2026-06-25T08:31:59Z
+views:
+  admin:
+    rules:
+      -
+        access: read-write
+        request: weather.{key}
+        storage: v1.weather.{key}
+      -
+        access: read-write
+        request: weather.location.{key}
+        storage: v1.weather.location.{key}
+      -
+        access: read-write
+        request: weather.mqtt.{key}
+        storage: v1.weather.mqtt.{key}
+    summary: Read-write control view used by the custodian snap.
+  state:
+    rules:
+      -
+        access: read
+        request: weather.{key}
+        storage: v1.weather.{key}
+      -
+        access: read
+        request: weather.location.{key}
+        storage: v1.weather.location.{key}
+      -
+        access: read
+        request: weather.mqtt.{key}
+        storage: v1.weather.mqtt.{key}
+    summary: Read-only view for observer snaps.
+body-length: 1300
+sign-key-sha3-384: cOvVeiH3apl1_GK6izPVrcvtTu4QcVEjOtqysUuFLV2cNbtc4rT6K_Ii3Fe2NwBH
+
+{
+  "storage": {
+    "schema": {
+      "v1": {
+        "schema": {
+          "weather": {
+            "schema": {
+              "api-key": {
+                "type": "string",
+                "visibility": "secret"
+              },
+              "location": {
+                "schema": {
+                  "lat": {
+                    "max": 90,
+                    "min": -90,
+                    "type": "number"
+                  },
+                  "lon": {
+                    "max": 180,
+                    "min": -180,
+                    "type": "number"
+                  }
+                },
+                "type": "map"
+              },
+              "mqtt": {
+                "schema": {
+                  "port": {
+                    "max": 65535,
+                    "min": 1,
+                    "type": "int"
+                  },
+                  "server": {
+                    "type": "string"
+                  },
+                  "topic": {
+                    "type": "string"
+                  }
+                },
+                "type": "map"
+              },
+              "poll-interval": {
+                "min": 60,
+                "type": "int"
+              }
+            },
+            "type": "map"
+          }
+        },
+        "type": "map"
+      }
+    }
+  }
+}
+
+AcLBcwQAAQoAHRYhBHPK/g6ZvlmjtCYES7lwzLxP90SIBQJqPOd/AAoJELlwzLxP90SI250P/0SU
+pXWiewuCA8RotNsfy7xLzZ7zrLYk77Svpu1oUDgQfTjRIz3q3icGv6uzdCrc1aUe/rag0A0T8NzX
+WWkcfn7C4r8z44PqQQBl1ymFyk3d9JWvc0wzJYAps75mIqxlRdHXwFXZYyKu4o46EhDFBFiyYlQ3
+mDP4i+E9H89hCHVL3ezcSueHgQ+sSuO3vRWtCbho0lM2Myelembjb+vffQkZIKvslQt7uIUcaAQE
+zd8NNjJ+wRkNDCVUriAxqkn4f6fjPjk8H9U/BhfT3j+E3YR5lDl8W3HmV8+Ehob1Kf7+dF+vfenv
+wIxLk9Qi+dzX7LCgYHgb1qqn6dQ2RX0GODAKUZ4WsmvExn+toKNi+OeTaAdewGAMkpCrbflt905+
+4SRXqBdJUkH7woWczccw/MNa0Ge5Ept9MDqUCVxVq3oKx4U39ap+HR98+RYQME1nq2fyT7YFxH4Z
+xQiKJmhJfjG8JYZBTW6wDk6fru8qvVNAO6trgPz0Zw/KxBcokX7RfU+Q1BUnu9u+Q3Xw81rFp50B
+qgzbMwws91vXkgO1uwLc+NL4Vb8KOaSCChpZmrFCHoH6UmKdyfPcVOESyssyV0y4KCZuHp5Q7HN8
+VqLGDvm4GEdyzoxI9CZE76B7rIu3KNk91Ck9vhQnVJyDtorPYbEl1XBzD0Kof0Q/tX1oXdlL

@@ -70,5 +70,26 @@ func LoadFromConfdb() (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("snapctl get weather view: %w", err)
 	}
-	return Parse(out)
+	inner, err := unwrapWeather(out)
+	if err != nil {
+		return Config{}, err
+	}
+	return Parse(inner)
+}
+
+// unwrapWeather extracts the weather subtree from a snapctl document. snapctl
+// keys the result by the requested view path, so reading the "weather" request
+// yields {"weather": {...}}; Parse expects just the inner {...}.
+func unwrapWeather(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return data, nil
+	}
+	var env map[string]json.RawMessage
+	if err := json.Unmarshal(data, &env); err != nil {
+		return nil, err
+	}
+	if w, ok := env["weather"]; ok {
+		return w, nil
+	}
+	return data, nil
 }

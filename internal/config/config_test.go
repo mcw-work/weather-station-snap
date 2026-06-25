@@ -37,6 +37,33 @@ func TestParseEmptyIsError(t *testing.T) {
 	}
 }
 
+func TestUnwrapWeatherEnvelope(t *testing.T) {
+	// snapctl keys the document by the requested view path.
+	in := []byte(`{"weather": {"api-key": "abc123", "poll-interval": 600}}`)
+	out, err := unwrapWeather(in)
+	if err != nil {
+		t.Fatalf("unwrapWeather returned error: %v", err)
+	}
+	cfg, err := Parse(out)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.APIKey != "abc123" || cfg.PollInterval != 600*time.Second {
+		t.Errorf("got %+v, want api-key=abc123 poll=10m", cfg)
+	}
+}
+
+func TestUnwrapWeatherPassthrough(t *testing.T) {
+	in := []byte(`{"api-key": "abc123"}`)
+	out, err := unwrapWeather(in)
+	if err != nil {
+		t.Fatalf("unwrapWeather returned error: %v", err)
+	}
+	if string(out) != string(in) {
+		t.Errorf("unwrapWeather(%s) = %s, want passthrough", in, out)
+	}
+}
+
 func TestParseInvalidJSONIsError(t *testing.T) {
 	if _, err := Parse([]byte(`{invalid}`)); err == nil {
 		t.Error("Parse(invalid JSON) returned nil error, want error")

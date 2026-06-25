@@ -38,11 +38,23 @@ storage:
 views:
   admin:
     rules:
-      - request: weather
-        storage: v1.weather
+      - request: weather.{key}
+        storage: v1.weather.{key}
+        access: read-write
+      - request: weather.location.{key}
+        storage: v1.weather.location.{key}
+        access: read-write
+      - request: weather.mqtt.{key}
+        storage: v1.weather.mqtt.{key}
         access: read-write
   state:
     rules:
-      - request: weather
-        storage: v1.weather
+      - request: weather.{key}
+        storage: v1.weather.{key}
+        access: read
+      - request: weather.location.{key}
+        storage: v1.weather.location.{key}
+        access: read
+      - request: weather.mqtt.{key}
+        storage: v1.weather.mqtt.{key}
         access: read
