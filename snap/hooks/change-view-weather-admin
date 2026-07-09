@@ -1,74 +1,53 @@
-#!/usr/bin/env python3
-import json
-import logging
-import logging.handlers
-import subprocess
-import sys
+#!/bin/bash
+# change-view-weather-admin: validate an incoming confdb weather write.
+#
+# Runs on every confdb transaction, including partial writes made while the
+# admin sets values one key at a time. Only fields that are *present* are
+# validated; absent fields are allowed (the daemon refuses to start until the
+# configuration is complete). Numeric range checks are enforced by the storage
+# schema, so the only cross-field rule checked here is that the mqtt.server
+# scheme is consistent with the tcp port.
+#
+# api-key has visibility:secret, so snapd redacts it from the values this hook
+# reads back; its presence is enforced by the daemon's own startup validation.
+set -u
 
-logger = logging.getLogger("change-view-hook")
-logger.setLevel(logging.INFO)
-try:
-    _h = logging.handlers.SysLogHandler(address="/dev/log")
-    _h.setFormatter(logging.Formatter("weatherstation.change-view: %(message)s"))
-    logger.addHandler(_h)
-except Exception:
-    pass
+log() { logger -t "weatherstation.change-view" "$1" 2>/dev/null || true; }
 
+get_conf() { snapctl get ":weather-admin" "$1" 2>/dev/null || true; }
 
-def validate(doc):
-    """Return an error string if doc is invalid, else None.
+log "validating confdb weather write"
 
-    This guard runs on every confdb transaction, including partial writes made
-    while the admin sets values one key at a time. It therefore validates only
-    the fields that are *present*: absent fields are allowed (the daemon refuses
-    to start until the configuration is complete). Range checks on numeric
-    fields are already enforced by the storage schema, so the only cross-field
-    rule that needs checking here is the mqtt.server scheme and its tcp port.
-    """
-    # api-key has visibility: secret, so snapd redacts it from the values this
-    # hook reads back; it would always look "missing" here. Presence is enforced
-    # by the daemon's own validation before it starts.
+server=$(get_conf "weather.mqtt.server")
 
-    mqtt = doc.get("mqtt", {})
-    server = str(mqtt.get("server", ""))
-    if not server:
-        return None
-    if server.startswith("unix://"):
-        return None
-    if server.startswith("tcp://"):
-        port = mqtt.get("port")
-        if port is not None and not (1 <= port <= 65535):
-            return f"mqtt.port must be 1..65535 for tcp, got {port}"
-        return None
-    return "mqtt.server must use a tcp:// or unix:// scheme"
+# No server set yet: partial write is fine.
+if [[ -z "$server" ]]; then
+    exit 0
+fi
 
-
-def read_incoming():
-    out = subprocess.run(
-        ["snapctl", "get", "-d", ":weather-admin", "--view", "weather"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-    if not out:
-        return {}
-    doc = json.loads(out)
-    # snapctl keys the result by the requested view path, so reading "weather"
-    # yields {"weather": {...}}; unwrap to the inner weather subtree.
-    if isinstance(doc, dict) and list(doc.keys()) == ["weather"]:
-        return doc["weather"]
-    return doc
-
-
-def main():
-    doc = read_incoming()
-    err = validate(doc)
-    if err:
-        logger.error("rejecting confdb write: %s", err)
-        sys.exit(1)  # abort the transaction
-    logger.info("confdb write validated")
-    sys.exit(0)
-
-
-if __name__ == "__main__":
-    main()
+case "$server" in
+    unix://*)
+        exit 0
+        ;;
+    tcp://*)
+        port=$(get_conf "weather.mqtt.port")
+        # Port not set yet: partial write is fine.
+        if [[ -z "$port" ]]; then
+            exit 0
+        fi
+        # Must be a decimal integer.
+        if [[ ! "$port" =~ ^[0-9]+$ ]]; then
+            log "rejecting confdb write: mqtt.port must be an integer, got $port"
+            exit 1
+        fi
+        if (( port < 1 || port > 65535 )); then
+            log "rejecting confdb write: mqtt.port must be 1..65535 for tcp, got $port"
+            exit 1
+        fi
+        exit 0
+        ;;
+    *)
+        log "rejecting confdb write: mqtt.server must use a tcp:// or unix:// scheme"
+        exit 1
+        ;;
+esac

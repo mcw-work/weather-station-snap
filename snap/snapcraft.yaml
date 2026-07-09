@@ -1,6 +1,6 @@
 name: mcw-meteo
 base: core26
-version: "0.1.1"
+version: "0.1.2"
 summary: Publishes OpenWeather data to an MQTT topic
 description: |
   Polls the OpenWeather current-weather API on a configurable interval and
@@ -29,23 +29,26 @@ apps:
 
 parts:
   weatherstationd:
-    plugin: go
+    plugin: nil
     source: .
     build-snaps:
       - go/1.26/stable
-    organize:
-      bin/weatherstationd: bin/weatherstationd
+    # Cross-compile the daemon for the target platform. In destructive mode the
+    # go plugin builds for the host arch (and `go install` refuses to
+    # cross-compile with GOBIN set), so build explicitly with GOARCH taken from
+    # the build-for target. CGO is disabled so no arch-specific C toolchain is
+    # required, keeping cross-builds reproducible.
+    build-environment:
+      - GOOS: linux
+      - GOARCH: $CRAFT_ARCH_BUILD_FOR
+      - CGO_ENABLED: "0"
+    override-build: |
+      go build -o "$CRAFT_PART_INSTALL/bin/weatherstationd" ./cmd/weatherstationd
   hooks:
     plugin: dump
     source: snap/local
     organize:
       configuration: etc/configuration
-  # core26 ships no interpreter; the configure and change-view hooks are
-  # Python, so bundle a stdlib-complete python3 into the snap runtime.
-  python3:
-    plugin: nil
-    stage-packages:
-      - python3
 
 plugs:
   weather-admin:

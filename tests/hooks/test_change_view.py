@@ -1,98 +1,74 @@
-import importlib.util
 import os
+import stat
+import subprocess
+import tempfile
 import unittest
-from importlib.machinery import SourceFileLoader
-from unittest import mock
 
 HOOK = os.path.join(
     os.path.dirname(__file__), "..", "..", "snap", "hooks", "change-view-weather-admin"
 )
 
-
-def load_hook():
-    # Snap hooks are extensionless, so an explicit loader is required.
-    loader = SourceFileLoader("change_view_hook", HOOK)
-    spec = importlib.util.spec_from_file_location("change_view_hook", HOOK, loader=loader)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def valid_doc():
-    return {
-        "api-key": "abc123",
-        "location": {"lat": 51.45, "lon": -2.59},
-        "poll-interval": 600,
-        "mqtt": {"server": "tcp://broker.local", "port": 1883, "topic": "weather/bristol"},
-    }
+# Mock snapctl. The hook invokes: snapctl get :weather-admin <key>
+# so $3 is the requested key path.
+_MOCK_SNAPCTL = """#!/bin/sh
+case "$3" in
+    weather.mqtt.server) printf '%s' "$MOCK_SERVER" ;;
+    weather.mqtt.port)   printf '%s' "$MOCK_PORT" ;;
+esac
+"""
 
 
-class TestValidate(unittest.TestCase):
-    def test_valid_returns_none(self):
-        mod = load_hook()
-        self.assertIsNone(mod.validate(valid_doc()))
+def run_hook(server="", port=""):
+    """Run the bash hook with a mocked snapctl; return its exit code."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mock_path = os.path.join(tmpdir, "snapctl")
+        with open(mock_path, "w") as f:
+            f.write(_MOCK_SNAPCTL)
+        os.chmod(
+            mock_path,
+            stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
+        )
+
+        env = os.environ.copy()
+        env["PATH"] = tmpdir + os.pathsep + env.get("PATH", "")
+        env["MOCK_SERVER"] = str(server)
+        env["MOCK_PORT"] = str(port)
+
+        return subprocess.run(["bash", HOOK], env=env, capture_output=True).returncode
+
+
+class TestChangeViewHook(unittest.TestCase):
+    def test_valid_tcp(self):
+        self.assertEqual(run_hook(server="tcp://broker.local", port="1883"), 0)
 
     def test_unix_server_ok(self):
-        mod = load_hook()
-        d = valid_doc()
-        d["mqtt"]["server"] = "unix:///run/mosquitto/mqtt.sock"
-        self.assertIsNone(mod.validate(d))
-
-    def test_redacted_api_key_ok(self):
-        # api-key is a confdb secret; snapd redacts it from the values the
-        # change-view hook reads back, so an absent api-key must not be rejected.
-        mod = load_hook()
-        d = valid_doc()
-        del d["api-key"]
-        self.assertIsNone(mod.validate(d))
-
-    def test_partial_doc_ok(self):
-        # The admin may set values one key at a time; a partial document with
-        # only some fields present must be accepted so setup can proceed.
-        mod = load_hook()
-        self.assertIsNone(mod.validate({"poll-interval": 600}))
-
-    def test_empty_doc_ok(self):
-        mod = load_hook()
-        self.assertIsNone(mod.validate({}))
+        self.assertEqual(run_hook(server="unix:///run/mosquitto/mqtt.sock"), 0)
 
     def test_absent_server_ok(self):
-        mod = load_hook()
-        d = valid_doc()
-        del d["mqtt"]["server"]
-        self.assertIsNone(mod.validate(d))
+        # Partial write with no server set yet must be accepted.
+        self.assertEqual(run_hook(server=""), 0)
+
+    def test_absent_port_with_tcp_ok(self):
+        # Port not yet set during a partial tcp write is still valid.
+        self.assertEqual(run_hook(server="tcp://broker.local", port=""), 0)
 
     def test_bad_scheme(self):
-        mod = load_hook()
-        d = valid_doc()
-        d["mqtt"]["server"] = "broker.local"
-        self.assertIn("scheme", mod.validate(d))
+        self.assertEqual(run_hook(server="broker.local", port="1883"), 1)
 
-    def test_tcp_bad_port(self):
-        mod = load_hook()
-        d = valid_doc()
-        d["mqtt"]["port"] = 0
-        self.assertIn("port", mod.validate(d))
+    def test_non_integer_port(self):
+        self.assertEqual(run_hook(server="tcp://broker.local", port="abc"), 1)
 
+    def test_tcp_port_zero(self):
+        self.assertEqual(run_hook(server="tcp://broker.local", port="0"), 1)
 
-class TestReadIncoming(unittest.TestCase):
-    def _run(self, stdout):
-        mod = load_hook()
-        completed = mock.Mock(stdout=stdout)
-        with mock.patch.object(mod.subprocess, "run", return_value=completed):
-            return mod.read_incoming()
+    def test_tcp_port_too_high(self):
+        self.assertEqual(run_hook(server="tcp://broker.local", port="65536"), 1)
 
-    def test_unwraps_weather_envelope(self):
-        # snapctl keys the result by the requested view path.
-        doc = self._run('{"weather": {"poll-interval": 600}}')
-        self.assertEqual(doc, {"poll-interval": 600})
+    def test_tcp_port_boundary_low(self):
+        self.assertEqual(run_hook(server="tcp://broker.local", port="1"), 0)
 
-    def test_passthrough_when_not_wrapped(self):
-        doc = self._run('{"poll-interval": 600}')
-        self.assertEqual(doc, {"poll-interval": 600})
-
-    def test_empty_output_is_empty_dict(self):
-        self.assertEqual(self._run(""), {})
+    def test_tcp_port_boundary_high(self):
+        self.assertEqual(run_hook(server="tcp://broker.local", port="65535"), 0)
 
 
 if __name__ == "__main__":
