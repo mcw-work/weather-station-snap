@@ -1,6 +1,6 @@
-name: weatherstation
+name: mcw-meteo
 base: core26
-version: "0.1.0"
+version: "0.1.1"
 summary: Publishes OpenWeather data to an MQTT topic
 description: |
   Polls the OpenWeather current-weather API on a configurable interval and
@@ -8,7 +8,15 @@ description: |
   a TCP or unix-domain-socket broker connection. Configured via snapd confdb.
 
 confinement: strict
-grade: devel
+grade: stable
+
+platforms:
+    amd64:
+        build-on: [amd64]
+        build-for: [amd64]
+    arm64:
+        build-on: [amd64, arm64]
+        build-for: [arm64]
 
 apps:
   weatherstationd:

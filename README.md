@@ -55,6 +55,20 @@ private directory — strict confinement only exposes the bind-mounted copy:
     sudo snap set $ACCOUNT/weather/admin weather.mqtt.server=unix:///var/snap/weatherstation/current/mqtt/mqtt.sock
     sudo snap set $ACCOUNT/weather/admin weather.mqtt.topic=weather/home
 
+## Building
+
+### Cross-compiling for ARM64
+
+To build a snap targeting ARM64 from an x86_64 host, use snapcraft's
+`--platform` flag in destructive mode:
+
+    snapcraft pack --destructive-mode --platform arm64
+
+This cross-compiles the Go daemon for `linux/arm64` and produces an
+`.snap` file suitable for installation on ARM64 devices (e.g. Raspberry Pi).
+Requires snapcraft 8+ and a host that supports the build environment for the
+target platform.
+
 ## Configuration reference
 
 Keys are confdb request paths under the `admin` view, set with
